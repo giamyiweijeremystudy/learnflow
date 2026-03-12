@@ -1,24 +1,33 @@
 // ============================================================
-// pages/Dashboard.jsx — Home Dashboard
+// pages/Dashboard.jsx — Home Dashboard (favourites first)
 // ============================================================
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../utils/AuthContext.jsx'
-import { getCourseById, getPublicCourses, findCourseByCode } from '../data/DATA.js'
+import { getCourseById, getPublicCourses, findCourseByCode, saveUser, getUserById } from '../data/DATA.js'
 import { Icon, Button, Alert, Modal, Badge, EmptyState } from '../components/UI.jsx'
 import CourseCard from '../components/CourseCard.jsx'
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, toggleFavourite, isFavourite, refreshUser } = useAuth()
   const navigate = useNavigate()
   const [codeInput, setCodeInput] = useState('')
   const [codeError, setCodeError] = useState('')
   const [joinedCourse, setJoinedCourse] = useState(null)
   const [showJoinModal, setShowJoinModal] = useState(false)
 
-  const myCourses = (user?.enrolledCourses || []).map(id => getCourseById(id)).filter(Boolean)
-  const recentPublic = getPublicCourses().slice(0, 6)
+  const rawEnrolled = (user?.enrolledCourses || []).map(id => getCourseById(id)).filter(Boolean)
+  const myCourses = [
+    ...rawEnrolled.filter(c => isFavourite(c.id)),
+    ...rawEnrolled.filter(c => !isFavourite(c.id)),
+  ]
+
+  const rawPublic = getPublicCourses().filter(c => !(user?.enrolledCourses || []).includes(c.id))
+  const discoverCourses = [
+    ...rawPublic.filter(c => isFavourite(c.id)),
+    ...rawPublic.filter(c => !isFavourite(c.id)),
+  ].slice(0, 6)
 
   function handleJoinByCode() {
     const found = findCourseByCode(codeInput.trim())
@@ -29,9 +38,17 @@ export default function Dashboard() {
   }
 
   function confirmJoin() {
+    if (!joinedCourse) return
+    const freshUser = getUserById(user.id)
+    if (freshUser && !freshUser.enrolledCourses.includes(joinedCourse.id)) {
+      saveUser({ ...freshUser, enrolledCourses: [...freshUser.enrolledCourses, joinedCourse.id] })
+      refreshUser()
+    }
     setShowJoinModal(false)
     navigate(`/course/${joinedCourse.id}`)
   }
+
+  const hasFavs = (user?.favouriteCourses?.length || 0) > 0
 
   return (
     <div className="main-content">
@@ -39,9 +56,7 @@ export default function Dashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h1 className="page-title">Welcome back, {user?.name?.split(' ')[0]} ✦</h1>
-            <p className="page-subtitle">
-              {myCourses.length} enrolled course{myCourses.length !== 1 ? 's' : ''}
-            </p>
+            <p className="page-subtitle">{myCourses.length} enrolled course{myCourses.length !== 1 ? 's' : ''}</p>
           </div>
           <Button icon="plus" onClick={() => navigate('/teach/new')}>New Course</Button>
         </div>
@@ -49,26 +64,19 @@ export default function Dashboard() {
 
       <div className="content-area">
         {/* Join by Code */}
-        <div className="card animate-fade-in" style={{ padding: '20px', marginBottom: 28 }}>
+        <div className="card animate-fade-in" style={{ padding: '18px 20px', marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <Icon name="key" size={20} style={{ color: 'var(--brand)' }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, marginBottom: 2, fontSize: '0.9rem' }}>Join with a course code</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Enter a 6-character code to access any course.
-              </div>
+              <div style={{ fontWeight: 600, marginBottom: 1, fontSize: '0.9rem' }}>Join with a course code</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Enter a 6-character code to access any course.</div>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <div>
-                <input
-                  className="input"
-                  placeholder="e.g. ABC123"
-                  value={codeInput}
+                <input className="input" placeholder="e.g. ABC123" value={codeInput}
                   onChange={e => { setCodeInput(e.target.value.toUpperCase()); setCodeError('') }}
-                  style={{ width: 140, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}
-                  maxLength={6}
-                  onKeyDown={e => e.key === 'Enter' && handleJoinByCode()}
-                />
+                  style={{ width: 130, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}
+                  maxLength={6} onKeyDown={e => e.key === 'Enter' && handleJoinByCode()} />
                 {codeError && <div className="error-text" style={{ marginTop: 4 }}>{codeError}</div>}
               </div>
               <Button onClick={handleJoinByCode} disabled={codeInput.length < 4}>Join</Button>
@@ -79,7 +87,10 @@ export default function Dashboard() {
         {/* Enrolled Courses */}
         <section style={{ marginBottom: 36 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Enrolled Courses</h2>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
+              Enrolled Courses
+              {hasFavs && <span style={{ marginLeft: 8, fontSize: '0.72rem', color: '#F59E0B', fontWeight: 500 }}>★ favourites first</span>}
+            </h2>
             {myCourses.length > 0 && (
               <Button variant="ghost" size="sm" onClick={() => navigate('/my-courses')}>
                 View all <Icon name="chevronRight" size={14} />
@@ -87,51 +98,37 @@ export default function Dashboard() {
             )}
           </div>
           {myCourses.length === 0 ? (
-            <EmptyState
-              icon="book"
-              title="No enrollments yet"
-              description="Explore public courses or enter a code to join one."
-              action={<Button icon="search" onClick={() => navigate('/explore')}>Explore Courses</Button>}
-            />
+            <EmptyState icon="book" title="No enrollments yet" description="Explore public courses or enter a code to join one."
+              action={<Button icon="search" onClick={() => navigate('/explore')}>Explore Courses</Button>} />
           ) : (
             <div className="grid-3">
               {myCourses.slice(0, 6).map((course, i) => (
-                <CourseCard key={course.id} course={course} animationDelay={i * 60} />
+                <CourseCard key={course.id} course={course} animationDelay={i * 60} showFav />
               ))}
             </div>
           )}
         </section>
 
         {/* Discover */}
-        {recentPublic.length > 0 && (
+        {discoverCourses.length > 0 && (
           <section>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Discover Courses</h2>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>Discover Courses</h2>
               <Button variant="ghost" size="sm" onClick={() => navigate('/explore')}>
                 Browse all <Icon name="chevronRight" size={14} />
               </Button>
             </div>
             <div className="grid-3">
-              {recentPublic.map((course, i) => (
-                <CourseCard key={course.id} course={course} animationDelay={i * 60} />
+              {discoverCourses.map((course, i) => (
+                <CourseCard key={course.id} course={course} animationDelay={i * 60} showFav />
               ))}
             </div>
           </section>
         )}
       </div>
 
-      {/* Join Modal */}
-      <Modal
-        open={showJoinModal}
-        onClose={() => setShowJoinModal(false)}
-        title="Join Course"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setShowJoinModal(false)}>Cancel</Button>
-            <Button onClick={confirmJoin}>Join Course</Button>
-          </>
-        }
-      >
+      <Modal open={showJoinModal} onClose={() => setShowJoinModal(false)} title="Join Course"
+        footer={<><Button variant="secondary" onClick={() => setShowJoinModal(false)}>Cancel</Button><Button onClick={confirmJoin}>Join Course</Button></>}>
         {joinedCourse && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Alert type="success">Course found!</Alert>

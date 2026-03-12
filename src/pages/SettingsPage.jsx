@@ -1,8 +1,9 @@
 // ============================================================
-// pages/SettingsPage.jsx — User Settings
+// pages/SettingsPage.jsx — Settings + Account Switching
 // ============================================================
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../utils/AuthContext.jsx'
 import { getUserById, saveUser } from '../data/DATA.js'
 import { Input, Button, Alert, Icon } from '../components/UI.jsx'
@@ -43,8 +44,17 @@ export function applyTheme(themeName) {
   r.style.setProperty('--border-light', t.borderLight)
 }
 
+const SIDE_TABS = [
+  { value: 'profile',    label: 'Profile',    icon: 'user' },
+  { value: 'password',   label: 'Password',   icon: 'lock' },
+  { value: 'appearance', label: 'Appearance', icon: 'star' },
+  { value: 'accounts',   label: 'Accounts',   icon: 'users' },
+  { value: 'danger',     label: 'Account',    icon: 'trash' },
+]
+
 export default function SettingsPage() {
-  const { user, updateProfile, refreshUser } = useAuth()
+  const { user, updateProfile, refreshUser, switchAccount, unlinkAccount, getLinkedAccountObjects, logout } = useAuth()
+  const navigate = useNavigate()
   const [tab, setTab] = useState('profile')
   const [saved, setSaved] = useState('')
   const [error, setError] = useState('')
@@ -87,12 +97,18 @@ export default function SettingsPage() {
     flash('Theme applied!')
   }
 
-  const SIDE_TABS = [
-    { value: 'profile',    label: 'Profile',    icon: 'user' },
-    { value: 'password',   label: 'Password',   icon: 'lock' },
-    { value: 'appearance', label: 'Appearance', icon: 'star' },
-    { value: 'danger',     label: 'Account',    icon: 'trash' },
-  ]
+  function handleSwitch(userId) {
+    switchAccount(userId)
+    navigate('/dashboard')
+  }
+
+  function handleUnlink(userId) {
+    unlinkAccount(userId)
+    flash('Account removed from quick-switch.')
+    refreshUser()
+  }
+
+  const linkedAccounts = getLinkedAccountObjects()
 
   return (
     <div className="main-content">
@@ -101,7 +117,7 @@ export default function SettingsPage() {
         <p className="page-subtitle">Manage your account and preferences.</p>
       </div>
       <div className="content-area">
-        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 24, maxWidth: 820 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 24, maxWidth: 860 }}>
           {/* Side Nav */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {SIDE_TABS.map(t => (
@@ -115,6 +131,11 @@ export default function SettingsPage() {
                 transition: 'var(--transition)', fontFamily: 'var(--font-body)',
               }}>
                 <Icon name={t.icon} size={16} />{t.label}
+                {t.value === 'accounts' && linkedAccounts.length > 0 && (
+                  <span style={{ marginLeft: 'auto', background: 'var(--brand)', color: '#07090F', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700 }}>
+                    {linkedAccounts.length}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -124,6 +145,7 @@ export default function SettingsPage() {
             {saved && <div className="alert alert-success" style={{ marginBottom: 20 }}><Icon name="check" size={16} />{saved}</div>}
             {error && <div className="alert alert-error" style={{ marginBottom: 20 }}><Icon name="close" size={16} />{error}</div>}
 
+            {/* ── Profile ── */}
             {tab === 'profile' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
@@ -131,11 +153,9 @@ export default function SettingsPage() {
                   <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Update your display name and email.</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 16, background: 'var(--bg-muted)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{
-                    width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand), var(--accent1))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1.1rem', fontWeight: 700, color: '#07090F', flexShrink: 0,
-                  }}>{user?.avatar}</div>
+                  <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand), var(--accent1))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: 700, color: '#07090F', flexShrink: 0 }}>
+                    {user?.avatar}
+                  </div>
                   <div>
                     <div style={{ fontWeight: 600 }}>{user?.name}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{user?.email}</div>
@@ -148,11 +168,12 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* ── Password ── */}
             {tab === 'password' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
                   <h2 style={{ fontWeight: 700, marginBottom: 4 }}>Change Password</h2>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Choose a strong password of at least 6 characters.</p>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Minimum 6 characters.</p>
                 </div>
                 <Input label="Current Password" type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="••••••••" />
                 <Input label="New Password" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="••••••••" />
@@ -161,6 +182,7 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* ── Appearance ── */}
             {tab === 'appearance' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
@@ -189,11 +211,82 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* ── Accounts / Switch ── */}
+            {tab === 'accounts' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div>
+                  <h2 style={{ fontWeight: 700, marginBottom: 4 }}>Linked Accounts</h2>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    Accounts you've previously logged into on this device. Switch between them instantly — no password needed.
+                  </p>
+                </div>
+
+                {/* Current account */}
+                <div style={{ padding: 16, background: 'var(--brand-glow)', border: '1px solid rgba(56,189,248,0.25)', borderRadius: 'var(--radius-lg)' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--brand)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+                    Current Account
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand), var(--accent1))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 700, color: '#07090F', flexShrink: 0 }}>
+                      {user?.avatar}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{user?.name}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{user?.email}</div>
+                    </div>
+                    <div style={{ marginLeft: 'auto' }}>
+                      <span style={{ padding: '3px 10px', borderRadius: 'var(--radius-full)', background: 'var(--brand)', color: '#07090F', fontSize: '0.7rem', fontWeight: 700 }}>Active</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Linked accounts */}
+                {linkedAccounts.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--text-muted)', fontSize: '0.875rem', background: 'var(--bg-muted)', borderRadius: 'var(--radius-lg)' }}>
+                    No other accounts linked yet. Log into another account on this device to link it here.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {linkedAccounts.map(acct => (
+                      <div key={acct.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', transition: 'var(--transition)' }}>
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent1), var(--accent2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 700, color: '#07090F', flexShrink: 0 }}>
+                          {acct.avatar}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{acct.name}</div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{acct.email}</div>
+                          {acct.isAdmin && <span style={{ fontSize: '0.68rem', color: 'var(--brand)', fontWeight: 600 }}>⚡ Admin</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <Button size="sm" variant="primary" onClick={() => handleSwitch(acct.id)}>
+                            Switch
+                          </Button>
+                          <button onClick={() => handleUnlink(acct.id)} title="Remove from quick-switch" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '4px 8px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-body)' }}>
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+                    Want to add another account? Sign out and log in with a different account — it will automatically appear here.
+                  </p>
+                  <Button variant="secondary" onClick={() => { logout(); navigate('/login') }}>
+                    Sign Out & Switch Account
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Danger Zone ── */}
             {tab === 'danger' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
                   <h2 style={{ fontWeight: 700, marginBottom: 4 }}>Account</h2>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Irreversible actions. Please be careful.</p>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Irreversible actions.</p>
                 </div>
                 <div style={{ padding: 20, border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-lg)', background: 'rgba(239,68,68,0.05)' }}>
                   <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--error)' }}>Delete Account</div>
@@ -201,14 +294,8 @@ export default function SettingsPage() {
                     Permanently delete your account. This cannot be undone.
                     {user?.isSuperAdmin && ' The original admin account cannot be deleted.'}
                   </p>
-                  <button
-                    className="btn btn-danger"
-                    disabled={!!user?.isSuperAdmin}
-                    onClick={() => {
-                      if (!window.confirm('Delete your account permanently?')) return
-                      flash('Account deletion requires a backend — coming soon.', true)
-                    }}
-                  >
+                  <button className="btn btn-danger" disabled={!!user?.isSuperAdmin}
+                    onClick={() => flash('Account deletion requires a backend — coming soon.', true)}>
                     <Icon name="trash" size={15} /> Delete My Account
                   </button>
                 </div>

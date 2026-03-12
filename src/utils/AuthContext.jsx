@@ -1,28 +1,37 @@
 // ============================================================
-// AuthContext.jsx — Authentication & User State
+// AuthContext.jsx — Auth, Auto-login, Account Switching, Favourites
 // ============================================================
 
 import { createContext, useContext, useState, useEffect } from 'react'
-import { getUserByEmail, getUserById, saveUser, generateId, MOCK_USERS } from '../data/DATA.js'
+import { getUserByEmail, getUserById, saveUser, generateId } from '../data/DATA.js'
 
 const AuthContext = createContext(null)
+
+function getLinkedIds() {
+  try { return JSON.parse(localStorage.getItem('lf_linked') || '[]') } catch { return [] }
+}
+function addLinkedId(id) {
+  const ids = getLinkedIds()
+  if (!ids.includes(id)) ids.push(id)
+  localStorage.setItem('lf_linked', JSON.stringify(ids))
+}
+function removeLinkedId(id) {
+  localStorage.setItem('lf_linked', JSON.stringify(getLinkedIds().filter(x => x !== id)))
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const stored = localStorage.getItem('lf_session')
-    if (stored) {
-      try {
+    try {
+      const stored = localStorage.getItem('lf_session')
+      if (stored) {
         const { userId } = JSON.parse(stored)
         const found = getUserById(userId)
-        if (found) {
-          const { password: _, ...safe } = found
-          setUser(safe)
-        }
-      } catch {}
-    }
+        if (found) { const { password: _, ...s } = found; setUser(s) }
+      }
+    } catch {}
     setLoading(false)
   }, [])
 
@@ -34,65 +43,86 @@ export function AuthProvider({ children }) {
     const { password: _, ...safe } = found
     setUser(safe)
     localStorage.setItem('lf_session', JSON.stringify({ userId: found.id }))
+    addLinkedId(found.id)
     return { user: safe }
   }
 
   async function register(name, email, password) {
     await delay(300)
     if (getUserByEmail(email)) return { error: 'An account with that email already exists.' }
-    const newUser = {
-      id: generateId('u'),
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      password,
+    const nu = {
+      id: generateId('u'), name: name.trim(),
+      email: email.toLowerCase().trim(), password,
       avatar: name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
-      isAdmin: false,
-      isSuperAdmin: false,
-      enrolledCourses: [],
-      ownedCourses: [],
-      theme: 'dark',
-      createdAt: new Date().toISOString(),
+      isAdmin: false, isSuperAdmin: false,
+      enrolledCourses: [], ownedCourses: [], favouriteCourses: [],
+      theme: 'dark', createdAt: new Date().toISOString(),
     }
-    saveUser(newUser)
-    const { password: _, ...safe } = newUser
+    saveUser(nu)
+    const { password: _, ...safe } = nu
     setUser(safe)
-    localStorage.setItem('lf_session', JSON.stringify({ userId: newUser.id }))
+    localStorage.setItem('lf_session', JSON.stringify({ userId: nu.id }))
+    addLinkedId(nu.id)
     return { user: safe }
   }
 
-  function logout() {
-    setUser(null)
-    localStorage.removeItem('lf_session')
-  }
+  function logout() { setUser(null); localStorage.removeItem('lf_session') }
 
-  // Call this after updating user data to refresh session
   function refreshUser() {
     if (!user?.id) return
-    const fresh = getUserById(user.id)
-    if (fresh) {
-      const { password: _, ...safe } = fresh
-      setUser(safe)
-    }
+    const f = getUserById(user.id)
+    if (f) { const { password: _, ...s } = f; setUser(s) }
   }
 
-  // Update current user's profile fields
   function updateProfile(fields) {
     if (!user?.id) return
-    const fresh = getUserById(user.id)
-    if (!fresh) return
-    const updated = { ...fresh, ...fields }
-    saveUser(updated)
-    const { password: _, ...safe } = updated
+    const f = getUserById(user.id)
+    if (!f) return
+    const up = { ...f, ...fields }
+    saveUser(up)
+    const { password: _, ...safe } = up
     setUser(safe)
   }
 
+  function switchAccount(userId) {
+    const f = getUserById(userId)
+    if (!f) return false
+    const { password: _, ...safe } = f
+    setUser(safe)
+    localStorage.setItem('lf_session', JSON.stringify({ userId: f.id }))
+    addLinkedId(f.id)
+    return true
+  }
+
+  function unlinkAccount(userId) { removeLinkedId(userId) }
+
+  function getLinkedAccountObjects() {
+    return getLinkedIds()
+      .filter(id => id !== user?.id)
+      .map(id => getUserById(id)).filter(Boolean)
+      .map(u => { const { password: _, ...s } = u; return s })
+  }
+
+  function toggleFavourite(courseId) {
+    if (!user?.id) return
+    const f = getUserById(user.id)
+    if (!f) return
+    const favs = f.favouriteCourses || []
+    const next = favs.includes(courseId) ? favs.filter(id => id !== courseId) : [courseId, ...favs]
+    const up = { ...f, favouriteCourses: next }
+    saveUser(up)
+    const { password: _, ...safe } = up
+    setUser(safe)
+  }
+
+  function isFavourite(courseId) { return (user?.favouriteCourses || []).includes(courseId) }
+
   return (
     <AuthContext.Provider value={{
-      user, loading,
-      login, register, logout, refreshUser, updateProfile,
-      isLoggedIn: !!user,
-      isAdmin: !!user?.isAdmin,
-      isSuperAdmin: !!user?.isSuperAdmin,
+      user, loading, login, register, logout, refreshUser, updateProfile,
+      switchAccount, unlinkAccount, getLinkedAccountObjects,
+      toggleFavourite, isFavourite,
+      isLoggedIn: !!user, isAdmin: !!user?.isAdmin, isSuperAdmin: !!user?.isSuperAdmin,
     }}>
       {children}
     </AuthContext.Provider>
