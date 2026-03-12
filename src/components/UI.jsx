@@ -4,6 +4,7 @@
 
 import { useState, useRef } from 'react'
 import { Icons } from '../styles/GRAPHICS.js'
+import { fileToDataUrl } from '../data/DATA.js'
 
 // ── Icon ─────────────────────────────────────────────────────
 export function Icon({ name, size = 18, style = {} }) {
@@ -174,15 +175,8 @@ export function Tabs({ tabs, active, onChange }) {
 export function FavButton({ isFav, onToggle, style = {} }) {
   return (
     <button onClick={e => { e.stopPropagation(); onToggle() }} title={isFav ? 'Remove favourite' : 'Add to favourites'}
-      style={{
-        background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-        color: isFav ? '#F59E0B' : 'var(--text-muted)',
-        transition: 'var(--transition)', display: 'flex', alignItems: 'center',
-        ...style
-      }}>
-      <svg width="18" height="18" viewBox="0 0 24 24"
-        fill={isFav ? 'currentColor' : 'none'}
-        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: isFav ? '#F59E0B' : 'var(--text-muted)', transition: 'var(--transition)', display: 'flex', alignItems: 'center', ...style }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill={isFav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
       </svg>
     </button>
@@ -192,18 +186,17 @@ export function FavButton({ isFav, onToggle, style = {} }) {
 // ── Special Characters Toolbar ────────────────────────────────
 const SPECIAL_CHARS = [
   { label: 'Math',    chars: ['∑', '∫', '√', '∞', '≈', '≠', '≤', '≥', 'π', 'Δ', 'θ', 'λ', 'μ', 'σ', 'Ω', '÷', '×', '±', '∂', '∇'] },
-  { label: 'Science', chars: ['°', 'Å', '⁻¹', '⁻²', '²', '³', '¹', 'ₐ', '₀', '₁', '₂', 'α', 'β', 'γ', 'δ', 'ε', 'η', 'ρ', 'τ', 'φ'] },
-  { label: 'Arrows',  chars: ['→', '←', '↑', '↓', '↔', '⇒', '⇐', '⇔', '↗', '↘', '⟹', '⟺', '↺', '↻', '⊕', '⊗', '∈', '∉', '⊂', '⊃'] },
-  { label: 'Punct',   chars: ['\u2026', '\u2014', '\u2013', '\u201C', '\u201D', '\u2018', '\u2019', '\u00AB', '\u00BB', '\u2022', '\u00B7', '\u2020', '\u2021', '\u00A7', '\u00B6', '\u00A9', '\u00AE', '\u2122', '\u00B0', '\u00BF'] },
-  { label: 'Emoji',   chars: ['✓', '✗', '★', '☆', '♦', '♠', '♣', '♥', '⚡', '🔥', '💡', '⚠', '✍', '📌', '🎯', '🔑', '💬', '📊', '🧪', '🌍'] },
+  { label: 'Science', chars: ['°', 'Å', '²', '³', '¹', 'α', 'β', 'γ', 'δ', 'ε', 'η', 'ρ', 'τ', 'φ', '⁻', '₀', '₁', '₂', '₃', '₄'] },
+  { label: 'Arrows',  chars: ['→', '←', '↑', '↓', '↔', '⇒', '⇐', '⇔', '↗', '↘', '↺', '↻', '⊕', '⊗', '∈', '∉', '⊂', '⊃', '∧', '∨'] },
+  { label: 'Punct',   chars: ['\u2026', '\u2014', '\u2013', '\u00AB', '\u00BB', '\u2022', '\u00B7', '\u2020', '\u00A7', '\u00B6', '\u00A9', '\u00AE', '\u2122', '\u00B0', '\u00BF', '\u00D7', '\u00F7', '\u2260', '\u2248', '\u221E'] },
+  { label: 'Emoji',   chars: ['✓', '✗', '★', '☆', '♦', '♠', '♣', '♥', '⚡', '💡', '⚠', '✍', '📌', '🎯', '🔑', '💬', '📊', '🧪', '🌍', '🔬'] },
 ]
 
 export function SpecialCharsToolbar({ onInsert }) {
   const [activeTab, setActiveTab] = useState('Math')
-  const currentGroup = SPECIAL_CHARS.find(g => g.label === activeTab)
+  const current = SPECIAL_CHARS.find(g => g.label === activeTab)
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 6 }}>
-      {/* Tab row */}
       <div style={{ display: 'flex', background: 'var(--bg-muted)', borderBottom: '1px solid var(--border)' }}>
         {SPECIAL_CHARS.map(g => (
           <button key={g.label} onClick={() => setActiveTab(g.label)} style={{
@@ -216,17 +209,16 @@ export function SpecialCharsToolbar({ onInsert }) {
           }}>{g.label}</button>
         ))}
       </div>
-      {/* Char grid */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, padding: 6, background: 'var(--bg-surface)' }}>
-        {currentGroup?.chars.map(ch => (
-          <button key={ch} onClick={() => onInsert(ch)} title={ch} style={{
+        {current?.chars.map((ch, i) => (
+          <button key={i} onClick={() => onInsert(ch)} title={ch} style={{
             width: 30, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '0.9rem', cursor: 'pointer', borderRadius: 4,
             background: 'var(--bg-card)', border: '1px solid var(--border)',
             color: 'var(--text)', transition: 'var(--transition)', fontFamily: 'var(--font-mono)',
           }}
-            onMouseEnter={e => { e.target.style.background = 'var(--brand-glow)'; e.target.style.borderColor = 'var(--brand)' }}
-            onMouseLeave={e => { e.target.style.background = 'var(--bg-card)'; e.target.style.borderColor = 'var(--border)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--brand-glow)'; e.currentTarget.style.borderColor = 'var(--brand)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.borderColor = 'var(--border)' }}
           >{ch}</button>
         ))}
       </div>
@@ -234,13 +226,15 @@ export function SpecialCharsToolbar({ onInsert }) {
   )
 }
 
-// ── Rich Text Area (with special chars + image/video insert) ──
+// ── Rich Text Area ────────────────────────────────────────────
 export function RichTextArea({ label, value, onChange, placeholder = '', rows = 8 }) {
   const textareaRef = useRef(null)
   const [showChars, setShowChars] = useState(false)
   const [showMedia, setShowMedia] = useState(false)
   const [mediaUrl, setMediaUrl] = useState('')
   const [mediaType, setMediaType] = useState('image')
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef(null)
 
   function insertAtCursor(text) {
     const el = textareaRef.current
@@ -249,10 +243,7 @@ export function RichTextArea({ label, value, onChange, placeholder = '', rows = 
     const end = el.selectionEnd
     const next = value.slice(0, start) + text + value.slice(end)
     onChange({ target: { value: next } })
-    setTimeout(() => {
-      el.focus()
-      el.setSelectionRange(start + text.length, start + text.length)
-    }, 0)
+    setTimeout(() => { el.focus(); el.setSelectionRange(start + text.length, start + text.length) }, 0)
   }
 
   function insertMedia() {
@@ -260,47 +251,58 @@ export function RichTextArea({ label, value, onChange, placeholder = '', rows = 
     if (mediaType === 'image') {
       insertAtCursor(`\n[IMG:${mediaUrl.trim()}]\n`)
     } else {
-      // Convert YouTube watch URL to embed
       let url = mediaUrl.trim()
-      const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)
-      if (ytMatch) url = `https://www.youtube.com/embed/${ytMatch[1]}`
+      const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)
+      if (yt) url = `https://www.youtube.com/embed/${yt[1]}`
       insertAtCursor(`\n[VID:${url}]\n`)
     }
-    setMediaUrl('')
-    setShowMedia(false)
+    setMediaUrl(''); setShowMedia(false)
+  }
+
+  async function handleFileUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const dataUrl = await fileToDataUrl(file)
+      if (file.type.startsWith('image/')) {
+        insertAtCursor(`\n[IMG:${dataUrl}]\n`)
+      } else if (file.type.startsWith('video/')) {
+        insertAtCursor(`\n[VID_FILE:${dataUrl}]\n`)
+      }
+    } catch {}
+    setUploading(false)
+    e.target.value = ''
   }
 
   return (
     <div className="form-group">
       {label && <label className="input-label">{label}</label>}
-
-      {/* Toolbar */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button type="button" className="btn btn-secondary btn-sm"
-          onClick={() => { setShowChars(s => !s); setShowMedia(false) }}>
-          Ω Special Chars
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setShowChars(s => !s); setShowMedia(false) }}>
+          Ω Symbols
         </button>
-        <button type="button" className="btn btn-secondary btn-sm"
-          onClick={() => { setShowMedia(s => !s); setShowChars(false) }}>
-          <Icon name="image" size={13} /> Insert Media
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setShowMedia(s => !s); setShowChars(false) }}>
+          <Icon name="image" size={13} /> URL
         </button>
-        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 4 }}>
-          Use [IMG:url] for images · [VID:url] for video
-        </span>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+          <Icon name="image" size={13} /> {uploading ? 'Uploading…' : 'Upload File'}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={handleFileUpload} />
+        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Images & videos stored locally</span>
       </div>
 
       {showChars && <SpecialCharsToolbar onInsert={insertAtCursor} />}
 
       {showMedia && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 6, padding: 12, background: 'var(--bg-muted)', borderRadius: 'var(--radius-md)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 2 }}>
+          <div style={{ display: 'flex', gap: 6, width: '100%' }}>
             {['image', 'video'].map(t => (
               <button key={t} type="button" onClick={() => setMediaType(t)} style={{
                 padding: '4px 12px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.8rem',
                 background: mediaType === t ? 'var(--brand-glow)' : 'transparent',
                 border: `1px solid ${mediaType === t ? 'var(--brand)' : 'var(--border)'}`,
-                color: mediaType === t ? 'var(--brand)' : 'var(--text-secondary)',
-                fontFamily: 'var(--font-body)',
+                color: mediaType === t ? 'var(--brand)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)',
               }}>{t === 'image' ? '🖼 Image URL' : '▶ YouTube URL'}</button>
             ))}
           </div>
@@ -313,29 +315,38 @@ export function RichTextArea({ label, value, onChange, placeholder = '', rows = 
         </div>
       )}
 
-      <textarea ref={textareaRef} className="input" rows={rows} value={value}
-        onChange={onChange} placeholder={placeholder}
-        style={{ resize: 'vertical', lineHeight: 1.7, fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }} />
+      <textarea ref={textareaRef} className="input" rows={rows} value={value} onChange={onChange}
+        placeholder={placeholder} style={{ resize: 'vertical', lineHeight: 1.7, fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }} />
     </div>
   )
 }
 
 // ── Rich Content Renderer ─────────────────────────────────────
-// Renders text with embedded [IMG:url] and [VID:url] tags
 export function RichContent({ text = '' }) {
   if (!text) return null
-  const parts = text.split(/(\[IMG:[^\]]+\]|\[VID:[^\]]+\])/g)
+  const parts = text.split(/(\[IMG:[^\]]+\]|\[VID:[^\]]+\]|\[VID_FILE:[^\]]{1,200}\])/g)
   return (
     <div style={{ lineHeight: 1.8, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
       {parts.map((part, i) => {
         const imgMatch = part.match(/^\[IMG:(.+)\]$/)
-        const vidMatch = part.match(/^\[VID:(.+)\]$/)
+        // VID_FILE is a base64 video
+        const vidFileMatch = part.match(/^\[VID_FILE:(data:video[^\]]+)\]$/) || part.match(/^\[VID_FILE:(data:.+)\]$/)
+        const vidMatch = !vidFileMatch && part.match(/^\[VID:(.+)\]$/)
+
         if (imgMatch) {
           return (
             <div key={i} style={{ margin: '16px 0' }}>
               <img src={imgMatch[1]} alt="Lesson image"
                 style={{ maxWidth: '100%', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'block' }}
                 onError={e => { e.target.style.display = 'none' }} />
+            </div>
+          )
+        }
+        if (vidFileMatch) {
+          return (
+            <div key={i} style={{ margin: '16px 0' }}>
+              <video controls src={vidFileMatch[1]}
+                style={{ maxWidth: '100%', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'block' }} />
             </div>
           )
         }
@@ -354,16 +365,110 @@ export function RichContent({ text = '' }) {
   )
 }
 
-// ── Image URL Input with Preview ──────────────────────────────
-export function ImageInput({ label, value, onChange, placeholder }) {
+// ── Image/Cover Input with URL + File Upload ───────────────────
+export function ImageInput({ label, value, onChange, placeholder, showPreview = true }) {
+  const fileRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const dataUrl = await fileToDataUrl(file)
+      onChange({ target: { value: dataUrl } })
+    } catch {}
+    setUploading(false)
+    e.target.value = ''
+  }
+
   return (
     <div className="form-group">
       {label && <label className="input-label">{label}</label>}
-      <input className="input" value={value} onChange={onChange} placeholder={placeholder || 'https://example.com/image.jpg'} />
-      {value && (
-        <div style={{ marginTop: 8, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)', maxHeight: 200 }}>
-          <img src={value} alt="Preview" style={{ width: '100%', display: 'block', objectFit: 'cover', maxHeight: 200 }}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+        <input className="input" value={value} onChange={onChange}
+          placeholder={placeholder || 'https://example.com/image.jpg'}
+          style={{ flex: 1, fontSize: '0.875rem' }} />
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()} disabled={uploading}
+          style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <Icon name="image" size={13} /> {uploading ? '…' : 'Upload'}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+      </div>
+      {showPreview && value && (
+        <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)', maxHeight: 160 }}>
+          <img src={value} alt="Preview" style={{ width: '100%', display: 'block', objectFit: 'cover', maxHeight: 160 }}
             onError={e => { e.target.style.display = 'none' }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Video Input with URL + File Upload ────────────────────────
+export function VideoInput({ label, value, onChange, placeholder }) {
+  const fileRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+  const [inputMode, setInputMode] = useState('url') // 'url' | 'file'
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const dataUrl = await fileToDataUrl(file)
+      onChange({ target: { value: dataUrl, isFile: true } })
+      setInputMode('file')
+    } catch {}
+    setUploading(false)
+    e.target.value = ''
+  }
+
+  const isDataUrl = value?.startsWith('data:')
+
+  return (
+    <div className="form-group">
+      {label && <label className="input-label">{label}</label>}
+
+      {/* Mode toggle */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+        {['url', 'file'].map(m => (
+          <button key={m} type="button" onClick={() => setInputMode(m)} style={{
+            padding: '4px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.8rem', cursor: 'pointer',
+            background: inputMode === m ? 'var(--brand-glow)' : 'var(--bg-muted)',
+            border: `1px solid ${inputMode === m ? 'var(--brand)' : 'var(--border)'}`,
+            color: inputMode === m ? 'var(--brand)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)',
+          }}>{m === 'url' ? '🔗 YouTube URL' : '📁 Upload File'}</button>
+        ))}
+      </div>
+
+      {inputMode === 'url' && (
+        <input className="input" value={isDataUrl ? '' : (value || '')} onChange={onChange}
+          placeholder={placeholder || 'https://www.youtube.com/watch?v=...'} />
+      )}
+
+      {inputMode === 'file' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button type="button" className="btn btn-secondary" onClick={() => fileRef.current?.click()} disabled={uploading}
+            style={{ flex: 1 }}>
+            <Icon name="video" size={15} /> {uploading ? 'Uploading…' : isDataUrl ? 'Replace Video File' : 'Choose Video File'}
+          </button>
+          <input ref={fileRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={handleFile} />
+          {isDataUrl && <span style={{ fontSize: '0.75rem', color: 'var(--success)' }}>✓ File loaded</span>}
+        </div>
+      )}
+
+      {/* Preview */}
+      {value && (
+        <div style={{ marginTop: 10 }}>
+          {isDataUrl ? (
+            <video controls src={value} style={{ maxWidth: '100%', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'block' }} />
+          ) : value.includes('youtube.com/embed') || value.includes('youtu') ? (
+            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)' }}>
+              <iframe src={value} title="Preview" frameBorder="0" allowFullScreen
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
+            </div>
+          ) : null}
         </div>
       )}
     </div>

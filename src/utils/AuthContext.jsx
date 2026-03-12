@@ -1,5 +1,6 @@
 // ============================================================
 // AuthContext.jsx — Auth, Auto-login, Account Switching, Favourites
+// Theme is stored per user profile and applied on login/switch/load
 // ============================================================
 
 import { createContext, useContext, useState, useEffect } from 'react'
@@ -7,6 +8,36 @@ import { getUserByEmail, getUserById, saveUser, generateId } from '../data/DATA.
 
 const AuthContext = createContext(null)
 
+// ── Theme application (defined here so AuthContext can call it) ─
+// Matches applyTheme in SettingsPage — keep in sync
+const THEME_VARS = {
+  dark:   { bg: '#07090F', bgSurface: '#0D1117', bgCard: '#111827', bgMuted: '#1E293B', brand: '#38BDF8', text: '#F1F5F9', textSec: '#94A3B8', textMuted: '#475569', border: '#1E2D40', borderLight: '#253347' },
+  light:  { bg: '#F8FAFC', bgSurface: '#F1F5F9', bgCard: '#FFFFFF', bgMuted: '#E2E8F0', brand: '#0284C7', text: '#0F172A', textSec: '#475569', textMuted: '#94A3B8', border: '#E2E8F0', borderLight: '#CBD5E1' },
+  ocean:  { bg: '#071520', bgSurface: '#0A1E2E', bgCard: '#0F2438', bgMuted: '#142d45', brand: '#22D3EE', text: '#E0F2FE', textSec: '#7DD3FC', textMuted: '#38BDF8', border: '#1a3a52', borderLight: '#1e4a68' },
+  forest: { bg: '#071510', bgSurface: '#0A1E15', bgCard: '#0F2418', bgMuted: '#142d1e', brand: '#34D399', text: '#DCFCE7', textSec: '#6EE7B7', textMuted: '#34D399', border: '#1a3a24', borderLight: '#1e4a2c' },
+  purple: { bg: '#0D0714', bgSurface: '#130A1E', bgCard: '#1A0F28', bgMuted: '#1e1230', brand: '#A78BFA', text: '#EDE9FE', textSec: '#C4B5FD', textMuted: '#A78BFA', border: '#2d1a50', borderLight: '#3d2468' },
+  sunset: { bg: '#130A00', bgSurface: '#1E1000', bgCard: '#291600', bgMuted: '#331b00', brand: '#FB923C', text: '#FFF7ED', textSec: '#FED7AA', textMuted: '#FB923C', border: '#4a2800', borderLight: '#5a3400' },
+}
+
+export function applyUserTheme(themeName) {
+  const t = THEME_VARS[themeName] || THEME_VARS.dark
+  const r = document.documentElement
+  r.style.setProperty('--bg', t.bg)
+  r.style.setProperty('--bg-surface', t.bgSurface)
+  r.style.setProperty('--bg-card', t.bgCard)
+  r.style.setProperty('--bg-card-hover', t.bgCard)
+  r.style.setProperty('--bg-muted', t.bgMuted)
+  r.style.setProperty('--brand', t.brand)
+  r.style.setProperty('--brand-dark', t.brand)
+  r.style.setProperty('--brand-glow', t.brand + '22')
+  r.style.setProperty('--text', t.text)
+  r.style.setProperty('--text-secondary', t.textSec)
+  r.style.setProperty('--text-muted', t.textMuted)
+  r.style.setProperty('--border', t.border)
+  r.style.setProperty('--border-light', t.borderLight)
+}
+
+// ── Linked accounts ────────────────────────────────────────────
 function getLinkedIds() {
   try { return JSON.parse(localStorage.getItem('lf_linked') || '[]') } catch { return [] }
 }
@@ -29,7 +60,11 @@ export function AuthProvider({ children }) {
       if (stored) {
         const { userId } = JSON.parse(stored)
         const found = getUserById(userId)
-        if (found) { const { password: _, ...s } = found; setUser(s) }
+        if (found) {
+          const { password: _, ...safe } = found
+          setUser(safe)
+          applyUserTheme(found.theme || 'dark') // ← apply saved theme on auto-login
+        }
       }
     } catch {}
     setLoading(false)
@@ -44,6 +79,7 @@ export function AuthProvider({ children }) {
     setUser(safe)
     localStorage.setItem('lf_session', JSON.stringify({ userId: found.id }))
     addLinkedId(found.id)
+    applyUserTheme(found.theme || 'dark') // ← apply saved theme on login
     return { user: safe }
   }
 
@@ -63,6 +99,7 @@ export function AuthProvider({ children }) {
     setUser(safe)
     localStorage.setItem('lf_session', JSON.stringify({ userId: nu.id }))
     addLinkedId(nu.id)
+    applyUserTheme('dark')
     return { user: safe }
   }
 
@@ -82,6 +119,8 @@ export function AuthProvider({ children }) {
     saveUser(up)
     const { password: _, ...safe } = up
     setUser(safe)
+    // If theme was updated, apply it immediately
+    if (fields.theme) applyUserTheme(fields.theme)
   }
 
   function switchAccount(userId) {
@@ -91,6 +130,7 @@ export function AuthProvider({ children }) {
     setUser(safe)
     localStorage.setItem('lf_session', JSON.stringify({ userId: f.id }))
     addLinkedId(f.id)
+    applyUserTheme(f.theme || 'dark') // ← apply that account's theme on switch
     return true
   }
 

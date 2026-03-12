@@ -10,8 +10,8 @@ import {
   getCoverTheme, COVER_THEMES, saveCourse
 } from '../data/DATA.js'
 import {
-  Icon, Button, Input, Textarea, Select, Badge, Modal, Alert,
-  Tabs, CopyButton, RichTextArea, SpecialCharsToolbar, ImageInput
+  Icon, Button, Input, Textarea, Select, Badge, Modal,
+  Tabs, CopyButton, RichTextArea, ImageInput, VideoInput
 } from '../components/UI.jsx'
 
 const LESSON_TYPES = [
@@ -36,7 +36,7 @@ export default function CourseEditor() {
   const existing = id ? getCourseById(id) : null
 
   if (!isNew && existing && !existing.editorIds?.includes(user?.id) && !isAdmin) {
-    return <div style={{ padding: 48, color: 'var(--error)' }}>You don't have edit access to this course.</div>
+    return <div style={{ padding: 48, color: 'var(--error)' }}>You don&apos;t have edit access to this course.</div>
   }
 
   const [tab, setTab] = useState('info')
@@ -44,15 +44,15 @@ export default function CourseEditor() {
   const [saveError, setSaveError] = useState('')
 
   const [info, setInfo] = useState({
-    title:       existing?.title       || '',
-    description: existing?.description || '',
-    category:    existing?.category    || PRESET_CATEGORIES[0],
-    customCat:   PRESET_CATEGORIES.includes(existing?.category) ? '' : (existing?.category || ''),
-    difficulty:  existing?.difficulty  || 'beginner',
-    visibility:  existing?.visibility  || 'public',
-    coverImage:  existing?.coverImage  || 'default',
-    coverImageUrl: existing?.coverImageUrl || '',
-    tags:        existing?.tags?.join(', ') || '',
+    title:        existing?.title        || '',
+    description:  existing?.description  || '',
+    category:     existing?.category     || PRESET_CATEGORIES[0],
+    customCat:    PRESET_CATEGORIES.includes(existing?.category) ? '' : (existing?.category || ''),
+    difficulty:   existing?.difficulty   || 'beginner',
+    visibility:   existing?.visibility   || 'public',
+    coverImage:   existing?.coverImage   || 'default',
+    coverImageUrl:existing?.coverImageUrl|| '',
+    tags:         existing?.tags?.join(', ') || '',
   })
 
   const [modules, setModules] = useState(existing?.modules || [])
@@ -65,8 +65,7 @@ export default function CourseEditor() {
   const [useCustomCat, setUseCustomCat] = useState(!PRESET_CATEGORIES.includes(existing?.category) && !!existing?.category)
 
   const courseCode = existing?.code || generateCourseCode()
-
-  function setI(field) { return e => setInfo(i => ({ ...i, [field]: e.target.value })) }
+  const setI = field => e => setInfo(i => ({ ...i, [field]: typeof e === 'string' ? e : e.target.value }))
 
   function handleSave() {
     if (!info.title.trim()) { setSaveError('Course title is required.'); return }
@@ -103,12 +102,12 @@ export default function CourseEditor() {
     const lesson = {
       id: generateId('l'), title: newLesson.title.trim(), type: newLesson.type,
       estimatedMinutes: parseInt(newLesson.estimatedMinutes) || 10,
-      order: modules[activeModIdx].lessons.length + 1,
+      order: (modules[activeModIdx]?.lessons.length || 0) + 1,
       content: defaultContent(newLesson.type),
     }
     setModules(mods => mods.map((m, i) => i === activeModIdx ? { ...m, lessons: [...m.lessons, lesson] } : m))
     setNewLesson({ title: '', type: 'text', estimatedMinutes: 10 }); setShowAddLesson(false)
-    setActiveLessonIdx(modules[activeModIdx].lessons.length)
+    setActiveLessonIdx((modules[activeModIdx]?.lessons.length) || 0)
   }
 
   function deleteModule(idx) {
@@ -126,7 +125,6 @@ export default function CourseEditor() {
   }
 
   const currentLesson = activeModIdx !== null && activeLessonIdx !== null ? modules[activeModIdx]?.lessons[activeLessonIdx] : null
-
   const coverTheme = getCoverTheme(info.coverImage)
 
   return (
@@ -145,7 +143,7 @@ export default function CourseEditor() {
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <Button variant="secondary" onClick={() => navigate(-1)}>Discard</Button>
-            <Button icon={saved ? 'check' : 'check'} onClick={handleSave} disabled={saved}>
+            <Button icon="check" onClick={handleSave} disabled={saved}>
               {saved ? '✓ Saved!' : 'Save Course'}
             </Button>
           </div>
@@ -153,8 +151,8 @@ export default function CourseEditor() {
       </div>
 
       <div className="content-area">
-        {saveError && <Alert type="error" style={{ marginBottom: 16 }}>{saveError}</Alert>}
-        {saved && <Alert type="success" style={{ marginBottom: 16 }}>Course saved! Redirecting…</Alert>}
+        {saveError && <div className="alert alert-error" style={{ marginBottom: 16 }}><Icon name="close" size={16} />{saveError}</div>}
+        {saved && <div className="alert alert-success" style={{ marginBottom: 16 }}><Icon name="check" size={16} />Course saved! Redirecting…</div>}
 
         <div style={{ marginBottom: 24 }}>
           <Tabs
@@ -165,27 +163,26 @@ export default function CourseEditor() {
 
         {/* ── INFO TAB ── */}
         {tab === 'info' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <Input label="Course Title" placeholder="e.g. Introduction to Algebra" value={info.title} onChange={setI('title')} />
               <Textarea label="Description" placeholder="What will students learn?" value={info.description} onChange={setI('description')} rows={4} />
 
-              {/* Category — preset or custom */}
+              {/* Category */}
               <div className="form-group">
                 <label className="input-label">Category</label>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                  <button type="button" onClick={() => setUseCustomCat(false)} style={{
-                    padding: '5px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.8rem', cursor: 'pointer',
-                    background: !useCustomCat ? 'var(--brand-glow)' : 'var(--bg-muted)',
-                    border: `1px solid ${!useCustomCat ? 'var(--brand)' : 'var(--border)'}`,
-                    color: !useCustomCat ? 'var(--brand)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)',
-                  }}>Preset</button>
-                  <button type="button" onClick={() => setUseCustomCat(true)} style={{
-                    padding: '5px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.8rem', cursor: 'pointer',
-                    background: useCustomCat ? 'var(--brand-glow)' : 'var(--bg-muted)',
-                    border: `1px solid ${useCustomCat ? 'var(--brand)' : 'var(--border)'}`,
-                    color: useCustomCat ? 'var(--brand)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)',
-                  }}>Custom</button>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  {['Preset', 'Custom'].map((label, i) => {
+                    const active = i === 0 ? !useCustomCat : useCustomCat
+                    return (
+                      <button key={label} type="button" onClick={() => setUseCustomCat(i === 1)} style={{
+                        padding: '5px 16px', borderRadius: 'var(--radius-full)', fontSize: '0.8rem', cursor: 'pointer',
+                        background: active ? 'var(--brand-glow)' : 'var(--bg-muted)',
+                        border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
+                        color: active ? 'var(--brand)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)',
+                      }}>{label}</button>
+                    )
+                  })}
                 </div>
                 {!useCustomCat ? (
                   <select className="input" value={info.category} onChange={setI('category')}>
@@ -201,36 +198,45 @@ export default function CourseEditor() {
               <Input label="Tags (comma-separated)" placeholder="e.g. algebra, math" value={info.tags} onChange={setI('tags')} />
             </div>
 
-            {/* Cover Theme + Custom Image */}
+            {/* Cover */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Preview */}
-              <div style={{ height: 100, borderRadius: 'var(--radius-lg)', overflow: 'hidden', position: 'relative', border: '1px solid var(--border)' }}>
+              <div style={{ height: 110, borderRadius: 'var(--radius-lg)', overflow: 'hidden', position: 'relative', border: '1px solid var(--border)' }}>
                 {info.coverImageUrl ? (
                   <img src={info.coverImageUrl} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <div style={{ height: '100%', background: `linear-gradient(135deg, ${coverTheme.from}, ${coverTheme.to})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem' }}>
+                  <div style={{ height: '100%', background: `linear-gradient(135deg, ${coverTheme.from}, ${coverTheme.to})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.8rem' }}>
                     {coverTheme.icon}
                   </div>
                 )}
-                <div style={{ position: 'absolute', top: 8, right: 8 }}>
-                  <Badge variant="muted">{info.coverImageUrl ? 'Custom' : coverTheme.label}</Badge>
-                </div>
+                {info.coverImageUrl && (
+                  <button type="button" onClick={() => setInfo(i => ({ ...i, coverImageUrl: '' }))}
+                    style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="close" size={12} />
+                  </button>
+                )}
               </div>
 
-              {/* Custom cover URL */}
-              <ImageInput label="Custom Cover Image URL (optional)" value={info.coverImageUrl} onChange={setI('coverImageUrl')}
-                placeholder="https://example.com/cover.jpg" />
+              {/* Cover image input — URL or file */}
+              <ImageInput
+                label="Cover Image (URL or upload)"
+                value={info.coverImageUrl}
+                onChange={e => setInfo(i => ({ ...i, coverImageUrl: e.target.value }))}
+                showPreview={false}
+              />
 
-              <label className="input-label" style={{ marginTop: 4 }}>Or choose a theme colour</label>
+              <label className="input-label" style={{ marginTop: 2 }}>Or choose a colour theme</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
                 {Object.entries(COVER_THEMES).map(([key, theme]) => (
-                  <button key={key} type="button" onClick={() => { setInfo(i => ({ ...i, coverImage: key, coverImageUrl: '' })) }} style={{
-                    height: 48, borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                    background: `linear-gradient(135deg, ${theme.from}, ${theme.to})`,
-                    border: `2px solid ${info.coverImage === key && !info.coverImageUrl ? 'white' : 'transparent'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem',
-                    transition: 'var(--transition)', opacity: info.coverImageUrl ? 0.5 : 1,
-                  }} title={theme.label}>{theme.icon}</button>
+                  <button key={key} type="button"
+                    onClick={() => setInfo(i => ({ ...i, coverImage: key, coverImageUrl: '' }))}
+                    style={{
+                      height: 48, borderRadius: 'var(--radius-md)', cursor: 'pointer',
+                      background: `linear-gradient(135deg, ${theme.from}, ${theme.to})`,
+                      border: `2px solid ${info.coverImage === key && !info.coverImageUrl ? 'white' : 'transparent'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem',
+                      transition: 'var(--transition)', opacity: info.coverImageUrl ? 0.45 : 1,
+                    }} title={theme.label}>{theme.icon}</button>
                 ))}
               </div>
             </div>
@@ -250,9 +256,7 @@ export default function CourseEditor() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {modules.length === 0 && (
-                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 8px' }}>
-                    No modules yet.
-                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 8px' }}>No modules yet.</div>
                 )}
                 {modules.map((mod, mi) => (
                   <div key={mod.id}>
@@ -340,16 +344,14 @@ export default function CourseEditor() {
               </div>
             </div>
             <div className="card" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 600, marginBottom: 6, fontSize: '0.9rem' }}>Course Code</div>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Course Code</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <code style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', letterSpacing: '0.16em', color: 'var(--brand)', background: 'var(--bg-muted)', padding: '8px 16px', borderRadius: 'var(--radius-md)' }}>
                   {courseCode}
                 </code>
                 <CopyButton text={courseCode} />
               </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 8 }}>
-                Share this code with students to let them join directly.
-              </p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 8 }}>Share this code with students to let them join directly.</p>
             </div>
           </div>
         )}
@@ -388,31 +390,26 @@ function LessonEditor({ lesson, onChange }) {
       {lesson.type === 'text' && (
         <RichTextArea label="Lesson Content" rows={12} value={content.body || ''}
           onChange={e => onChange({ ...content, body: e.target.value })}
-          placeholder="Write your lesson content here. Use the toolbar to insert images, videos, and special characters…" />
+          placeholder="Write lesson content. Use the toolbar to insert images, videos and special characters…" />
       )}
 
       {lesson.type === 'image' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <ImageInput label="Image URL" value={content.imageUrl || ''} onChange={e => onChange({ ...content, imageUrl: e.target.value })} />
-          <Input label="Caption (optional)" value={content.caption || ''} onChange={e => onChange({ ...content, caption: e.target.value })} placeholder="Describe the image…" />
+          <ImageInput label="Image (URL or upload from file)"
+            value={content.imageUrl || ''}
+            onChange={e => onChange({ ...content, imageUrl: e.target.value })} />
+          <Input label="Caption (optional)" value={content.caption || ''}
+            onChange={e => onChange({ ...content, caption: e.target.value })} placeholder="Describe the image…" />
         </div>
       )}
 
       {lesson.type === 'video' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Input label="YouTube URL" value={content.videoUrl || ''} onChange={e => {
-            let url = e.target.value
-            const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)
-            if (yt) url = `https://www.youtube.com/embed/${yt[1]}`
-            onChange({ ...content, videoUrl: url })
-          }} placeholder="https://www.youtube.com/watch?v=..." />
-          {content.videoUrl && (
-            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)' }}>
-              <iframe src={content.videoUrl} title="Preview" frameBorder="0" allowFullScreen
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
-            </div>
-          )}
-        </div>
+        <VideoInput
+          label="Video (YouTube URL or upload from file)"
+          value={content.videoUrl || ''}
+          onChange={e => onChange({ ...content, videoUrl: e.target.value, isFile: e.target.isFile })}
+          placeholder="https://www.youtube.com/watch?v=..."
+        />
       )}
 
       {lesson.type === 'quiz' && (
@@ -476,5 +473,6 @@ function QuizEditor({ questions, onChange }) {
 }
 
 function defaultContent(type) {
-  return { text: { body: '' }, image: { imageUrl: '', caption: '' }, video: { videoUrl: '' }, quiz: { questions: [] }, questionnaire: { body: '' }, interactive: { body: '' } }[type] || {}
+  const map = { text: { body: '' }, image: { imageUrl: '', caption: '' }, video: { videoUrl: '' }, quiz: { questions: [] }, questionnaire: { body: '' }, interactive: { body: '' } }
+  return map[type] || {}
 }

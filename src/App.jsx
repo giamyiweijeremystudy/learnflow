@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { AuthProvider, useAuth } from './utils/AuthContext.jsx'
 import { GLOBAL_CSS, COMPONENT_STYLES, LAYOUT_STYLES } from './styles/GRAPHICS.js'
 import { getCourseById } from './data/DATA.js'
-import { applyTheme } from './pages/SettingsPage.jsx'
+import { applyUserTheme } from './utils/AuthContext.jsx'
 
 // Pages
 import AuthPage     from './pages/AuthPage.jsx'
@@ -148,7 +148,7 @@ function MyCoursesPage() {
 function ThemeApplier() {
   const { user } = useAuth()
   useEffect(() => {
-    if (user?.theme) applyTheme(user.theme)
+    if (user?.theme) applyUserTheme(user.theme)
   }, [user?.theme])
   return null
 }
@@ -171,7 +171,7 @@ export default function App() {
 function ThemeApplierWrapper() {
   const { user } = useAuth()
   useEffect(() => {
-    if (user?.theme) applyTheme(user.theme)
+    if (user?.theme) applyUserTheme(user.theme)
   }, [user?.theme])
   return null
 }

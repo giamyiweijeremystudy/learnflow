@@ -1,15 +1,15 @@
 // ============================================================
 // DATA.js — LearnFlow Data Layer
+// All data lives in localStorage — survives page refresh AND
+// codebase updates (we never wipe existing lf_store data).
 // ============================================================
 
-// ─── CONSTANTS ───────────────────────────────────────────────
+export const DIFFICULTIES = ['beginner', 'intermediate', 'advanced']
 
 export const CATEGORIES = [
   'Mathematics', 'Computer Science', 'Science', 'History',
   'Language Arts', 'Art & Music', 'Social Studies', 'Health & PE',
 ]
-
-export const DIFFICULTIES = ['beginner', 'intermediate', 'advanced']
 
 export const COVER_THEMES = {
   math:    { from: '#1e3a5f', to: '#0ea5e9', icon: '∑',   label: 'Mathematics' },
@@ -25,18 +25,7 @@ export function getCoverTheme(key) {
   return COVER_THEMES[key] || COVER_THEMES.default
 }
 
-// ─── THEMES ──────────────────────────────────────────────────
-
-export const APP_THEMES = {
-  dark:  { label: 'Dark',  bg: '#07090F' },
-  light: { label: 'Light', bg: '#F8FAFC' },
-  ocean: { label: 'Ocean', bg: '#071520' },
-  forest:{ label: 'Forest',bg: '#071510' },
-}
-
 // ─── PERSISTENT STORE ────────────────────────────────────────
-// Uses localStorage so data survives page refresh.
-// In production, replace with Cloudflare D1 API calls.
 
 function loadStore() {
   try {
@@ -49,61 +38,69 @@ function loadStore() {
 function saveStore(store) {
   try {
     localStorage.setItem('lf_store', JSON.stringify(store))
-  } catch {}
+  } catch (e) {
+    // localStorage quota — base64 images can be large
+    console.warn('LearnFlow: localStorage save failed', e)
+  }
+}
+
+const ADMIN_SEED = {
+  id: 'admin',
+  name: 'Admin',
+  email: 'admin@learnflow.app',
+  password: 'potato',
+  avatar: 'AD',
+  isAdmin: true,
+  isSuperAdmin: true,
+  enrolledCourses: [],
+  ownedCourses: [],
+  favouriteCourses: [],
+  theme: 'dark',
+  createdAt: '2024-01-01T00:00:00Z',
 }
 
 function initStore() {
-  // Seed with only the admin account, no preset courses
-  return {
-    users: [
-      {
-        id: 'admin',
-        name: 'Admin',
-        email: 'admin@learnflow.app',
-        password: 'potato',
-        avatar: 'AD',
-        isAdmin: true,
-        isSuperAdmin: true, // the original — cannot be demoted
-        enrolledCourses: [],
-        ownedCourses: [],
-        theme: 'dark',
-        createdAt: '2024-01-01T00:00:00Z',
-      },
-    ],
-    courses: [],
-  }
+  return { users: [{ ...ADMIN_SEED }], courses: [] }
 }
 
-// Load or initialise
+// Load existing or create fresh — NEVER wipes existing data
 let STORE = loadStore() || initStore()
 
-// If store exists but is missing isSuperAdmin on the original admin, patch it
-if (STORE.users) {
-  const admin = STORE.users.find(u => u.id === 'admin')
-  if (admin) {
-    admin.isSuperAdmin = true
-    admin.isAdmin = true
-  }
-  saveStore(STORE)
+// ── Migration patches (run on every load, idempotent) ─────────
+// Ensure admin account always exists and has correct flags
+const adminIdx = STORE.users.findIndex(u => u.id === 'admin')
+if (adminIdx === -1) {
+  STORE.users.unshift({ ...ADMIN_SEED })
+} else {
+  STORE.users[adminIdx].isSuperAdmin = true
+  STORE.users[adminIdx].isAdmin = true
+  // ensure admin has all required fields
+  if (!STORE.users[adminIdx].favouriteCourses) STORE.users[adminIdx].favouriteCourses = []
 }
+// Ensure all users have favouriteCourses field
+STORE.users.forEach(u => { if (!u.favouriteCourses) u.favouriteCourses = [] })
+// Ensure all courses have required fields
+STORE.courses.forEach(c => {
+  if (!c.editorIds) c.editorIds = [c.ownerId]
+  if (!c.enrolledCount) c.enrolledCount = 0
+  if (!c.modules) c.modules = []
+  if (!c.tags) c.tags = []
+})
+saveStore(STORE)
 
-// Expose arrays by reference for legacy reads — always use helpers to write
-export const MOCK_USERS    = STORE.users
-export const MOCK_COURSES  = STORE.courses
+// Expose by reference (read-only — always use helpers to mutate)
+export const MOCK_USERS   = STORE.users
+export const MOCK_COURSES = STORE.courses
 
 // ─── USER HELPERS ─────────────────────────────────────────────
 
 export function getUserByEmail(email) {
   return STORE.users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null
 }
-
 export function getUserById(id) {
   return STORE.users.find(u => u.id === id) || null
 }
-
-export function getAllUsers() {
-  return STORE.users
-}
+export function getAllUsers() { return STORE.users }
 
 export function saveUser(user) {
   const idx = STORE.users.findIndex(u => u.id === user.id)
@@ -113,17 +110,17 @@ export function saveUser(user) {
 }
 
 export function grantAdmin(targetId) {
-  const user = getUserById(targetId)
-  if (!user) return
-  user.isAdmin = true
-  saveUser(user)
+  const u = getUserById(targetId); if (!u) return
+  u.isAdmin = true; saveUser(u)
 }
-
 export function revokeAdmin(targetId) {
-  const user = getUserById(targetId)
-  if (!user || user.isSuperAdmin) return // original admin is untouchable
-  user.isAdmin = false
-  saveUser(user)
+  const u = getUserById(targetId); if (!u || u.isSuperAdmin) return
+  u.isAdmin = false; saveUser(u)
+}
+export function deleteUser(userId) {
+  const u = getUserById(userId); if (u?.isSuperAdmin) return
+  STORE.users = STORE.users.filter(u => u.id !== userId)
+  saveStore(STORE)
 }
 
 // ─── COURSE HELPERS ───────────────────────────────────────────
@@ -131,11 +128,9 @@ export function revokeAdmin(targetId) {
 export function getCourseById(id) {
   return STORE.courses.find(c => c.id === id) || null
 }
-
 export function getPublicCourses() {
   return STORE.courses.filter(c => c.visibility === 'public')
 }
-
 export function searchCourses(query) {
   const q = query.toLowerCase().trim()
   if (!q) return getPublicCourses()
@@ -149,33 +144,22 @@ export function searchCourses(query) {
     )
   })
 }
-
 export function findCourseByCode(code) {
   return STORE.courses.find(c => c.code.toUpperCase() === code.toUpperCase()) || null
 }
-
 export function getEditableCourses(userId) {
   const user = getUserById(userId)
-  if (user?.isAdmin) return STORE.courses // admins see all
-  return STORE.courses.filter(c => c.editorIds.includes(userId))
+  if (user?.isAdmin) return STORE.courses
+  return STORE.courses.filter(c => c.editorIds?.includes(userId))
 }
-
 export function saveCourse(course) {
   const idx = STORE.courses.findIndex(c => c.id === course.id)
   if (idx !== -1) STORE.courses[idx] = course
   else STORE.courses.push(course)
   saveStore(STORE)
 }
-
 export function deleteCourse(courseId) {
   STORE.courses = STORE.courses.filter(c => c.id !== courseId)
-  saveStore(STORE)
-}
-
-export function deleteUser(userId) {
-  const user = getUserById(userId)
-  if (user?.isSuperAdmin) return // cannot delete original admin
-  STORE.users = STORE.users.filter(u => u.id !== userId)
   saveStore(STORE)
 }
 
@@ -185,11 +169,20 @@ export function generateCourseCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
   for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
-  // ensure unique
   if (findCourseByCode(code)) return generateCourseCode()
   return code
 }
-
 export function generateId(prefix = 'id') {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
+
+// ─── FILE → BASE64 HELPER ─────────────────────────────────────
+// Converts a File object to a base64 data URL for localStorage storage.
+export function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = e => resolve(e.target.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 }

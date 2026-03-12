@@ -335,11 +335,16 @@ export default function CourseView() {
               )}
 
               {currentLesson.type === 'video' && currentLesson.content?.videoUrl && (
-                <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <iframe src={currentLesson.content.videoUrl} title={currentLesson.title} frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
-                </div>
+                currentLesson.content.videoUrl.startsWith('data:') ? (
+                  <video controls src={currentLesson.content.videoUrl}
+                    style={{ maxWidth: '100%', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', display: 'block' }} />
+                ) : (
+                  <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    <iframe src={currentLesson.content.videoUrl} title={currentLesson.title} frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
+                  </div>
+                )
               )}
 
               {currentLesson.type === 'quiz' && <QuizView questions={currentLesson.content?.questions} />}

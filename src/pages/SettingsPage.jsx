@@ -1,12 +1,13 @@
 // ============================================================
 // pages/SettingsPage.jsx — Settings + Account Switching
+// Theme is stored in user profile and applied via AuthContext
 // ============================================================
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../utils/AuthContext.jsx'
+import { useAuth, applyUserTheme } from '../utils/AuthContext.jsx'
 import { getUserById, saveUser } from '../data/DATA.js'
-import { Input, Button, Alert, Icon } from '../components/UI.jsx'
+import { Input, Button, Icon } from '../components/UI.jsx'
 
 export const THEMES = [
   { value: 'dark',   label: 'Dark',   desc: 'Easy on the eyes',  bg: '#07090F', accent: '#38BDF8' },
@@ -16,33 +17,6 @@ export const THEMES = [
   { value: 'purple', label: 'Purple', desc: 'Rich and vibrant',  bg: '#0D0714', accent: '#A78BFA' },
   { value: 'sunset', label: 'Sunset', desc: 'Warm amber tones',  bg: '#130A00', accent: '#FB923C' },
 ]
-
-const THEME_VARS = {
-  dark:   { bg: '#07090F', bgSurface: '#0D1117', bgCard: '#111827', bgMuted: '#1E293B', brand: '#38BDF8', text: '#F1F5F9', textSec: '#94A3B8', textMuted: '#475569', border: '#1E2D40', borderLight: '#253347' },
-  light:  { bg: '#F8FAFC', bgSurface: '#F1F5F9', bgCard: '#FFFFFF', bgMuted: '#E2E8F0', brand: '#0284C7', text: '#0F172A', textSec: '#475569', textMuted: '#94A3B8', border: '#E2E8F0', borderLight: '#CBD5E1' },
-  ocean:  { bg: '#071520', bgSurface: '#0A1E2E', bgCard: '#0F2438', bgMuted: '#142d45', brand: '#22D3EE', text: '#E0F2FE', textSec: '#7DD3FC', textMuted: '#38BDF8', border: '#1a3a52', borderLight: '#1e4a68' },
-  forest: { bg: '#071510', bgSurface: '#0A1E15', bgCard: '#0F2418', bgMuted: '#142d1e', brand: '#34D399', text: '#DCFCE7', textSec: '#6EE7B7', textMuted: '#34D399', border: '#1a3a24', borderLight: '#1e4a2c' },
-  purple: { bg: '#0D0714', bgSurface: '#130A1E', bgCard: '#1A0F28', bgMuted: '#1e1230', brand: '#A78BFA', text: '#EDE9FE', textSec: '#C4B5FD', textMuted: '#A78BFA', border: '#2d1a50', borderLight: '#3d2468' },
-  sunset: { bg: '#130A00', bgSurface: '#1E1000', bgCard: '#291600', bgMuted: '#331b00', brand: '#FB923C', text: '#FFF7ED', textSec: '#FED7AA', textMuted: '#FB923C', border: '#4a2800', borderLight: '#5a3400' },
-}
-
-export function applyTheme(themeName) {
-  const t = THEME_VARS[themeName] || THEME_VARS.dark
-  const r = document.documentElement
-  r.style.setProperty('--bg', t.bg)
-  r.style.setProperty('--bg-surface', t.bgSurface)
-  r.style.setProperty('--bg-card', t.bgCard)
-  r.style.setProperty('--bg-card-hover', t.bgCard)
-  r.style.setProperty('--bg-muted', t.bgMuted)
-  r.style.setProperty('--brand', t.brand)
-  r.style.setProperty('--brand-dark', t.brand)
-  r.style.setProperty('--brand-glow', t.brand + '22')
-  r.style.setProperty('--text', t.text)
-  r.style.setProperty('--text-secondary', t.textSec)
-  r.style.setProperty('--text-muted', t.textMuted)
-  r.style.setProperty('--border', t.border)
-  r.style.setProperty('--border-light', t.borderLight)
-}
 
 const SIDE_TABS = [
   { value: 'profile',    label: 'Profile',    icon: 'user' },
@@ -92,20 +66,18 @@ export default function SettingsPage() {
 
   function pickTheme(theme) {
     setSelectedTheme(theme)
-    applyTheme(theme)
-    updateProfile({ theme })
+    updateProfile({ theme }) // saves to profile + applies via AuthContext
     flash('Theme applied!')
   }
 
   function handleSwitch(userId) {
-    switchAccount(userId)
+    switchAccount(userId) // also applies that account's saved theme
     navigate('/dashboard')
   }
 
   function handleUnlink(userId) {
     unlinkAccount(userId)
     flash('Account removed from quick-switch.')
-    refreshUser()
   }
 
   const linkedAccounts = getLinkedAccountObjects()
@@ -187,7 +159,9 @@ export default function SettingsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
                   <h2 style={{ fontWeight: 700, marginBottom: 4 }}>Appearance</h2>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Choose a colour theme for your interface.</p>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    Your theme is saved to your profile — it follows you across devices and account switches.
+                  </p>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                   {THEMES.map(theme => (
@@ -211,44 +185,39 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* ── Accounts / Switch ── */}
+            {/* ── Accounts ── */}
             {tab === 'accounts' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
                   <h2 style={{ fontWeight: 700, marginBottom: 4 }}>Linked Accounts</h2>
                   <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                    Accounts you've previously logged into on this device. Switch between them instantly — no password needed.
+                    Switch between accounts instantly — no password needed. Each account keeps its own theme.
                   </p>
                 </div>
 
-                {/* Current account */}
+                {/* Current */}
                 <div style={{ padding: 16, background: 'var(--brand-glow)', border: '1px solid rgba(56,189,248,0.25)', borderRadius: 'var(--radius-lg)' }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--brand)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                    Current Account
-                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--brand)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Current Account</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand), var(--accent1))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 700, color: '#07090F', flexShrink: 0 }}>
                       {user?.avatar}
                     </div>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600 }}>{user?.name}</div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{user?.email}</div>
                     </div>
-                    <div style={{ marginLeft: 'auto' }}>
-                      <span style={{ padding: '3px 10px', borderRadius: 'var(--radius-full)', background: 'var(--brand)', color: '#07090F', fontSize: '0.7rem', fontWeight: 700 }}>Active</span>
-                    </div>
+                    <span style={{ padding: '3px 10px', borderRadius: 'var(--radius-full)', background: 'var(--brand)', color: '#07090F', fontSize: '0.7rem', fontWeight: 700 }}>Active</span>
                   </div>
                 </div>
 
-                {/* Linked accounts */}
                 {linkedAccounts.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--text-muted)', fontSize: '0.875rem', background: 'var(--bg-muted)', borderRadius: 'var(--radius-lg)' }}>
-                    No other accounts linked yet. Log into another account on this device to link it here.
+                    No other accounts linked yet. Sign out and log in with a different account — it will appear here automatically.
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {linkedAccounts.map(acct => (
-                      <div key={acct.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', transition: 'var(--transition)' }}>
+                      <div key={acct.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
                         <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent1), var(--accent2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 700, color: '#07090F', flexShrink: 0 }}>
                           {acct.avatar}
                         </div>
@@ -258,12 +227,8 @@ export default function SettingsPage() {
                           {acct.isAdmin && <span style={{ fontSize: '0.68rem', color: 'var(--brand)', fontWeight: 600 }}>⚡ Admin</span>}
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <Button size="sm" variant="primary" onClick={() => handleSwitch(acct.id)}>
-                            Switch
-                          </Button>
-                          <button onClick={() => handleUnlink(acct.id)} title="Remove from quick-switch" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '4px 8px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-body)' }}>
-                            ✕
-                          </button>
+                          <Button size="sm" onClick={() => handleSwitch(acct.id)}>Switch</Button>
+                          <button onClick={() => handleUnlink(acct.id)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '4px 8px', cursor: 'pointer', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', fontSize: '0.75rem' }}>✕</button>
                         </div>
                       </div>
                     ))}
@@ -271,9 +236,6 @@ export default function SettingsPage() {
                 )}
 
                 <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 12 }}>
-                    Want to add another account? Sign out and log in with a different account — it will automatically appear here.
-                  </p>
                   <Button variant="secondary" onClick={() => { logout(); navigate('/login') }}>
                     Sign Out & Switch Account
                   </Button>
@@ -281,7 +243,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* ── Danger Zone ── */}
+            {/* ── Danger ── */}
             {tab === 'danger' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
