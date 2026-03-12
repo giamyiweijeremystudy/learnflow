@@ -1,0 +1,21 @@
+# wrangler.toml — Cloudflare Pages / Workers config
+# Used if you later add Cloudflare Workers API functions
+
+name = "learnflow"
+compatibility_date = "2024-01-01"
+
+# Pages build settings (also set in Cloudflare Dashboard)
+[build]
+command = "npm run build"
+output_dir = "dist"
+
+# KV Namespaces (add when you connect real storage)
+# [[kv_namespaces]]
+# binding = "SESSIONS"
+# id = "your_kv_namespace_id"
+
+# D1 Database (add when you connect real DB)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "learnflow"
+# database_id = "your_d1_database_id"
