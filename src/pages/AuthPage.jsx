@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../utils/AuthContext.jsx'
 import { Input, Button, Alert, Spinner } from '../components/UI.jsx'
 
@@ -13,7 +13,7 @@ export default function AuthPage({ mode = 'login' }) {
   const [isLogin, setIsLogin] = useState(mode === 'login')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' })
+  const [form, setForm] = useState({ name: '', email: '', password: '' })
 
   function set(field) {
     return e => setForm(f => ({ ...f, [field]: e.target.value }))
@@ -28,7 +28,8 @@ export default function AuthPage({ mode = 'login' }) {
       result = await login(form.email, form.password)
     } else {
       if (!form.name.trim()) { setError('Please enter your name.'); setLoading(false); return }
-      result = await register(form.name, form.email, form.password, form.role)
+      if (form.password.length < 6) { setError('Password must be at least 6 characters.'); setLoading(false); return }
+      result = await register(form.name, form.email, form.password)
     }
     setLoading(false)
     if (result.error) { setError(result.error); return }
@@ -41,9 +42,7 @@ export default function AuthPage({ mode = 'login' }) {
       alignItems: 'center', justifyContent: 'center', padding: '24px',
     }}>
       {/* Background decor */}
-      <div style={{
-        position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0,
-      }}>
+      <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
         <div style={{
           position: 'absolute', top: '-20%', right: '-10%',
           width: '600px', height: '600px', borderRadius: '50%',
@@ -80,76 +79,23 @@ export default function AuthPage({ mode = 'login' }) {
             {['Login', 'Sign Up'].map((label, i) => {
               const active = isLogin ? i === 0 : i === 1
               return (
-                <button
-                  key={label}
-                  onClick={() => { setIsLogin(i === 0); setError('') }}
-                  style={{
-                    flex: 1, padding: '9px', borderRadius: 'var(--radius-sm)',
-                    background: active ? 'var(--bg-card)' : 'transparent',
-                    border: active ? '1px solid var(--border-light)' : '1px solid transparent',
-                    color: active ? 'var(--text)' : 'var(--text-muted)',
-                    fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer',
-                    transition: 'var(--transition)',
-                  }}
-                >{label}</button>
+                <button key={label} onClick={() => { setIsLogin(i === 0); setError('') }} style={{
+                  flex: 1, padding: '9px', borderRadius: 'var(--radius-sm)',
+                  background: active ? 'var(--bg-card)' : 'transparent',
+                  border: active ? '1px solid var(--border-light)' : '1px solid transparent',
+                  color: active ? 'var(--text)' : 'var(--text-muted)',
+                  fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', transition: 'var(--transition)',
+                }}>{label}</button>
               )
             })}
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {!isLogin && (
-              <Input
-                label="Full Name"
-                placeholder="Your name"
-                value={form.name}
-                onChange={set('name')}
-                icon="user"
-                required
-              />
+              <Input label="Full Name" placeholder="Your name" value={form.name} onChange={set('name')} icon="user" required />
             )}
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="you@example.com"
-              value={form.email}
-              onChange={set('email')}
-              icon="user"
-              required
-            />
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={set('password')}
-              icon="lock"
-              required
-            />
-
-            {!isLogin && (
-              <div className="form-group">
-                <label className="input-label">I am a…</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {['student', 'teacher'].map(role => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => setForm(f => ({ ...f, role }))}
-                      style={{
-                        padding: '12px', borderRadius: 'var(--radius-md)',
-                        border: `1px solid ${form.role === role ? 'var(--brand)' : 'var(--border)'}`,
-                        background: form.role === role ? 'var(--brand-glow)' : 'var(--bg-muted)',
-                        color: form.role === role ? 'var(--brand)' : 'var(--text-secondary)',
-                        fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer',
-                        textTransform: 'capitalize', transition: 'var(--transition)',
-                      }}
-                    >
-                      {role === 'student' ? '🎓 Student' : '🏫 Teacher'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <Input label="Email Address" type="email" placeholder="you@example.com" value={form.email} onChange={set('email')} icon="user" required />
+            <Input label="Password" type="password" placeholder="••••••••" value={form.password} onChange={set('password')} icon="lock" required />
 
             {error && <Alert type="error">{error}</Alert>}
 
@@ -157,16 +103,6 @@ export default function AuthPage({ mode = 'login' }) {
               {loading ? <Spinner size={16} /> : isLogin ? 'Sign In' : 'Create Account'}
             </Button>
           </form>
-
-          {/* Demo hint */}
-          <div style={{
-            marginTop: 20, padding: '12px', background: 'var(--bg-muted)',
-            borderRadius: 'var(--radius-md)', fontSize: '0.78rem', color: 'var(--text-muted)',
-          }}>
-            <strong style={{ color: 'var(--text-secondary)' }}>Demo accounts:</strong><br />
-            Teacher: <code style={{ color: 'var(--brand)' }}>alex@example.com</code> / password123<br />
-            Student: <code style={{ color: 'var(--brand)' }}>jamie@example.com</code> / password123
-          </div>
         </div>
       </div>
     </div>

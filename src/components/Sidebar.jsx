@@ -1,5 +1,5 @@
 // ============================================================
-// components/Sidebar.jsx — App Shell Navigation
+// components/Sidebar.jsx — Navigation Sidebar
 // ============================================================
 
 import { NavLink, useNavigate } from 'react-router-dom'
@@ -7,7 +7,7 @@ import { useAuth } from '../utils/AuthContext.jsx'
 import { Icon, Avatar } from './UI.jsx'
 
 export default function Sidebar() {
-  const { user, logout, isTeacher } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
 
   function handleLogout() {
@@ -29,11 +29,14 @@ export default function Sidebar() {
         <SidebarLink to="/explore" icon="search">Explore</SidebarLink>
         <SidebarLink to="/my-courses" icon="book">My Courses</SidebarLink>
 
-        {isTeacher && (
+        <div className="sidebar-section-label" style={{ marginTop: 16 }}>Teaching</div>
+        <SidebarLink to="/teach" icon="layers">My Classes</SidebarLink>
+        <SidebarLink to="/teach/new" icon="plus">Create Course</SidebarLink>
+
+        {isAdmin && (
           <>
-            <div className="sidebar-section-label" style={{ marginTop: 16 }}>Teaching</div>
-            <SidebarLink to="/teach" icon="layers">My Classes</SidebarLink>
-            <SidebarLink to="/teach/new" icon="plus">Create Course</SidebarLink>
+            <div className="sidebar-section-label" style={{ marginTop: 16 }}>Admin</div>
+            <SidebarLink to="/admin" icon="settings">Admin Panel</SidebarLink>
           </>
         )}
 
@@ -50,8 +53,8 @@ export default function Sidebar() {
             <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }} className="truncate">
               {user?.name}
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-              {user?.role} · Sign out
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              {isAdmin ? '⚡ Admin · ' : ''}Sign out
             </div>
           </div>
           <Icon name="logout" size={16} style={{ color: 'var(--text-muted)' }} />

@@ -1,11 +1,9 @@
 // ============================================================
-// AuthContext.jsx — Authentication State & Logic
-// Simple localStorage-based auth. Replace with Cloudflare
-// Workers + D1 or JWT tokens in production.
+// AuthContext.jsx — Authentication & User State
 // ============================================================
 
 import { createContext, useContext, useState, useEffect } from 'react'
-import { getUserByEmail, MOCK_USERS, generateId } from '../data/DATA.js'
+import { getUserByEmail, getUserById, saveUser, generateId, MOCK_USERS } from '../data/DATA.js'
 
 const AuthContext = createContext(null)
 
@@ -13,71 +11,89 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Rehydrate session from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem('lf_user')
+    const stored = localStorage.getItem('lf_session')
     if (stored) {
-      try { setUser(JSON.parse(stored)) } catch { /* ignore */ }
+      try {
+        const { userId } = JSON.parse(stored)
+        const found = getUserById(userId)
+        if (found) {
+          const { password: _, ...safe } = found
+          setUser(safe)
+        }
+      } catch {}
     }
     setLoading(false)
   }, [])
 
-  /** Sign in with email + password */
   async function login(email, password) {
-    // Simulate async API call
-    await delay(400)
+    await delay(300)
     const found = getUserByEmail(email)
     if (!found) return { error: 'No account found with that email.' }
     if (found.password !== password) return { error: 'Incorrect password.' }
-    const { password: _, ...safeUser } = found
-    setUser(safeUser)
-    localStorage.setItem('lf_user', JSON.stringify(safeUser))
-    return { user: safeUser }
+    const { password: _, ...safe } = found
+    setUser(safe)
+    localStorage.setItem('lf_session', JSON.stringify({ userId: found.id }))
+    return { user: safe }
   }
 
-  /** Register a new account */
-  async function register(name, email, password, role = 'student') {
-    await delay(400)
+  async function register(name, email, password) {
+    await delay(300)
     if (getUserByEmail(email)) return { error: 'An account with that email already exists.' }
     const newUser = {
       id: generateId('u'),
-      name,
-      email,
-      avatar: name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
-      role,
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password,
+      avatar: name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
+      isAdmin: false,
+      isSuperAdmin: false,
       enrolledCourses: [],
       ownedCourses: [],
-      sharedCourses: [],
+      theme: 'dark',
       createdAt: new Date().toISOString(),
     }
-    // In real app: POST to Cloudflare Worker → D1 database
-    MOCK_USERS.push({ ...newUser, password })
-    setUser(newUser)
-    localStorage.setItem('lf_user', JSON.stringify(newUser))
-    return { user: newUser }
+    saveUser(newUser)
+    const { password: _, ...safe } = newUser
+    setUser(safe)
+    localStorage.setItem('lf_session', JSON.stringify({ userId: newUser.id }))
+    return { user: safe }
   }
 
-  /** Sign out */
   function logout() {
     setUser(null)
-    localStorage.removeItem('lf_user')
+    localStorage.removeItem('lf_session')
   }
 
-  /** Refresh user data (after enrollment etc.) */
+  // Call this after updating user data to refresh session
   function refreshUser() {
-    const fresh = MOCK_USERS.find(u => u.id === user?.id)
+    if (!user?.id) return
+    const fresh = getUserById(user.id)
     if (fresh) {
-      const { password: _, ...safeUser } = fresh
-      setUser(safeUser)
-      localStorage.setItem('lf_user', JSON.stringify(safeUser))
+      const { password: _, ...safe } = fresh
+      setUser(safe)
     }
   }
 
-  const isTeacher = user?.role === 'teacher'
-  const isLoggedIn = !!user
+  // Update current user's profile fields
+  function updateProfile(fields) {
+    if (!user?.id) return
+    const fresh = getUserById(user.id)
+    if (!fresh) return
+    const updated = { ...fresh, ...fields }
+    saveUser(updated)
+    const { password: _, ...safe } = updated
+    setUser(safe)
+  }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, isTeacher, isLoggedIn }}>
+    <AuthContext.Provider value={{
+      user, loading,
+      login, register, logout, refreshUser, updateProfile,
+      isLoggedIn: !!user,
+      isAdmin: !!user?.isAdmin,
+      isSuperAdmin: !!user?.isSuperAdmin,
+    }}>
       {children}
     </AuthContext.Provider>
   )
@@ -85,10 +101,8 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider')
+  if (!ctx) throw new Error('useAuth must be inside AuthProvider')
   return ctx
 }
 
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
+function delay(ms) { return new Promise(r => setTimeout(r, ms)) }

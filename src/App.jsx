@@ -2,24 +2,28 @@
 // App.jsx — Root Application + Router
 // ============================================================
 
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './utils/AuthContext.jsx'
 import { GLOBAL_CSS, COMPONENT_STYLES, LAYOUT_STYLES } from './styles/GRAPHICS.js'
 import { getCourseById } from './data/DATA.js'
+import { applyTheme } from './pages/SettingsPage.jsx'
 
 // Pages
-import AuthPage from './pages/AuthPage.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import ExplorePage from './pages/ExplorePage.jsx'
-import CourseView from './pages/CourseView.jsx'
+import AuthPage     from './pages/AuthPage.jsx'
+import Dashboard    from './pages/Dashboard.jsx'
+import ExplorePage  from './pages/ExplorePage.jsx'
+import CourseView   from './pages/CourseView.jsx'
 import CourseEditor from './pages/CourseEditor.jsx'
-import TeachPage from './pages/TeachPage.jsx'
+import TeachPage    from './pages/TeachPage.jsx'
+import SettingsPage from './pages/SettingsPage.jsx'
+import AdminPage    from './pages/AdminPage.jsx'
 
 // Components
 import Sidebar from './components/Sidebar.jsx'
 import { Icon } from './components/UI.jsx'
 
-// ── Spinner ───────────────────────────────────────────────────
+// ── Loading Spinner ───────────────────────────────────────────
 function Spinner() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
@@ -39,11 +43,11 @@ function ProtectedRoute({ children }) {
   return children
 }
 
-function TeacherRoute({ children }) {
-  const { isTeacher, isLoggedIn, loading } = useAuth()
+function AdminRoute({ children }) {
+  const { isAdmin, isLoggedIn, loading } = useAuth()
   if (loading) return <Spinner />
   if (!isLoggedIn) return <Navigate to="/login" replace />
-  if (!isTeacher) return <Navigate to="/dashboard" replace />
+  if (!isAdmin) return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -57,7 +61,7 @@ function AppShell({ children }) {
   )
 }
 
-// ── Inline Pages (simple) ─────────────────────────────────────
+// ── Profile Page ──────────────────────────────────────────────
 function ProfilePage() {
   const { user } = useAuth()
   return (
@@ -77,17 +81,18 @@ function ProfilePage() {
             <div>
               <div style={{ fontWeight: 700, fontSize: '1.15rem' }}>{user?.name}</div>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{user?.email}</div>
-              <div style={{ marginTop: 6 }}>
-                <span className="badge badge-brand" style={{ textTransform: 'capitalize' }}>{user?.role}</span>
+              <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
+                {user?.isAdmin && <span className="badge badge-brand">⚡ Admin</span>}
+                {user?.isSuperAdmin && <span className="badge badge-accent1">⭐ Super Admin</span>}
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+          <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
             {[
               ['Member since', new Date(user?.createdAt).toLocaleDateString('en-SG', { year: 'numeric', month: 'long' })],
               ['Enrolled courses', user?.enrolledCourses?.length || 0],
-              user?.role === 'teacher' ? ['Courses created', user?.ownedCourses?.length || 0] : null,
-            ].filter(Boolean).map(([label, value]) => (
+              ['Courses created', user?.ownedCourses?.length || 0],
+            ].map(([label, value]) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                 <span>{label}</span>
                 <span style={{ color: 'var(--text)', fontWeight: 500 }}>{value}</span>
@@ -100,28 +105,7 @@ function ProfilePage() {
   )
 }
 
-function SettingsPage() {
-  return (
-    <div className="main-content">
-      <div className="page-header">
-        <h1 className="page-title">Settings ✦</h1>
-        <p className="page-subtitle">Manage your account preferences.</p>
-      </div>
-      <div className="content-area">
-        <div className="card animate-fade-in" style={{ padding: 24, maxWidth: 480 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <Icon name="settings" size={20} style={{ color: 'var(--brand)' }} />
-            <span style={{ fontWeight: 600 }}>Account Settings</span>
-          </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            Full settings — notifications, themes, and privacy — coming in the next update.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
+// ── My Courses Page ───────────────────────────────────────────
 function MyCoursesPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -160,6 +144,15 @@ function MyCoursesPage() {
   )
 }
 
+// ── Theme Applier — runs once on load ─────────────────────────
+function ThemeApplier() {
+  const { user } = useAuth()
+  useEffect(() => {
+    if (user?.theme) applyTheme(user.theme)
+  }, [user?.theme])
+  return null
+}
+
 // ── Root App ──────────────────────────────────────────────────
 export default function App() {
   return (
@@ -167,11 +160,20 @@ export default function App() {
       <style dangerouslySetInnerHTML={{ __html: GLOBAL_CSS + COMPONENT_STYLES + LAYOUT_STYLES }} />
       <AuthProvider>
         <BrowserRouter>
+          <ThemeApplierWrapper />
           <AppRoutes />
         </BrowserRouter>
       </AuthProvider>
     </>
   )
+}
+
+function ThemeApplierWrapper() {
+  const { user } = useAuth()
+  useEffect(() => {
+    if (user?.theme) applyTheme(user.theme)
+  }, [user?.theme])
+  return null
 }
 
 function AppRoutes() {
@@ -180,20 +182,25 @@ function AppRoutes() {
 
   return (
     <Routes>
+      {/* Public */}
       <Route path="/login"    element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <AuthPage mode="login" />} />
       <Route path="/register" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <AuthPage mode="register" />} />
 
+      {/* Protected — available to ALL logged-in users */}
       <Route path="/dashboard"  element={<ProtectedRoute><AppShell><Dashboard /></AppShell></ProtectedRoute>} />
       <Route path="/explore"    element={<ProtectedRoute><AppShell><ExplorePage /></AppShell></ProtectedRoute>} />
       <Route path="/my-courses" element={<ProtectedRoute><AppShell><MyCoursesPage /></AppShell></ProtectedRoute>} />
       <Route path="/course/:id" element={<ProtectedRoute><AppShell><CourseView /></AppShell></ProtectedRoute>} />
+      <Route path="/teach"      element={<ProtectedRoute><AppShell><TeachPage /></AppShell></ProtectedRoute>} />
+      <Route path="/teach/new"  element={<ProtectedRoute><AppShell><CourseEditor /></AppShell></ProtectedRoute>} />
+      <Route path="/teach/edit/:id" element={<ProtectedRoute><AppShell><CourseEditor /></AppShell></ProtectedRoute>} />
       <Route path="/profile"    element={<ProtectedRoute><AppShell><ProfilePage /></AppShell></ProtectedRoute>} />
       <Route path="/settings"   element={<ProtectedRoute><AppShell><SettingsPage /></AppShell></ProtectedRoute>} />
 
-      <Route path="/teach"          element={<TeacherRoute><AppShell><TeachPage /></AppShell></TeacherRoute>} />
-      <Route path="/teach/new"      element={<TeacherRoute><AppShell><CourseEditor /></AppShell></TeacherRoute>} />
-      <Route path="/teach/edit/:id" element={<TeacherRoute><AppShell><CourseEditor /></AppShell></TeacherRoute>} />
+      {/* Admin only */}
+      <Route path="/admin" element={<AdminRoute><AppShell><AdminPage /></AppShell></AdminRoute>} />
 
+      {/* Fallback */}
       <Route path="/"  element={<Navigate to={isLoggedIn ? '/dashboard' : '/login'} replace />} />
       <Route path="*"  element={<Navigate to="/" replace />} />
     </Routes>
